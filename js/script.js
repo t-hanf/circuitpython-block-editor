@@ -20,6 +20,8 @@ import { isLocal, switchUrl, getUrlParam } from './common/utilities.js';
 import { CONNTYPE } from './constants.js';
 import './layout.js'; // load for side effects only
 import { mainContent, showSerial } from './layout.js';
+import {generateCode, loadBlockly} from "./blockly/block-editor.js";
+import * as Blockly from "blockly";
 
 // Instantiate workflows
 let workflows = {};
@@ -41,6 +43,11 @@ const btnSaveAs = document.querySelectorAll('.btn-save-as');
 const btnSaveRun = document.querySelectorAll('.btn-save-run');
 const btnInfo = document.querySelector('.btn-info');
 const terminalTitle = document.getElementById('terminal-title');
+
+const btnBlocklyGenerate = document.querySelectorAll('.btn-blockly-generate');
+const btnBlocklyOpen = document.querySelectorAll('.btn-blockly-open');
+const btnBlocklySave = document.querySelectorAll('.btn-blockly-save');
+const btnBlocklySaveAs = document.querySelectorAll('.btn-blockly-save-as');
 
 const messageDialog = new MessageModal("message");
 const connectionType = new ButtonValueDialog("connection-type");
@@ -138,6 +145,40 @@ btnInfo.addEventListener('click', async function(e) {
     }
 });
 
+// Blockly Buttons
+// Open Link/Button (Mobile and Desktop Layout)
+btnBlocklyOpen.forEach((element) => {
+    element.addEventListener('click', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        await openBlocklyFile();
+    });
+});
+
+// Save Link/Button (Mobile and Desktop Layout)
+btnBlocklySave.forEach((element) => {
+    element.addEventListener('click', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        await saveBlocklyFile();
+    });
+});
+
+// Save As Link/Button (Mobile and Desktop Layout)
+btnBlocklySaveAs.forEach((element) => {
+    element.addEventListener('click', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (await checkConnected()) {
+            let path = await workflow.saveBlockFileAs();
+            if (path !== null) {
+                console.log("Current File Changed to: " + workflow.currentFilename);
+            }
+        }
+    });
+});
+
+
 // Basic functions used for buttons and hotkeys
 async function openFile() {
     if (await checkConnected()) {
@@ -148,6 +189,19 @@ async function openFile() {
 async function saveFile() {
     if (await checkConnected()) {
         await workflow.saveFile();
+    }
+}
+
+// Blockly Functions
+async function openBlocklyFile() {
+    if (await checkConnected()) {
+        workflow.openBlockFile();
+    }
+}
+
+async function saveBlocklyFile() {
+    if (await checkConnected()) {
+        await workflow.saveBlockFile();
     }
 }
 
@@ -329,6 +383,8 @@ async function loadWorkflow(workflowType = null) {
                 showMessageFunc: showMessage,
                 currentFilename: currentFilename,
                 showSerialFunc: showSerial,
+                saveBlockFunc: saveBlocklyFileContents,
+                loadBlockFunc: loadBlocklyFileContents,
             });
         } else {
             console.log("Reload workflow");
@@ -374,6 +430,11 @@ function loadEditorContents(content) {
     }));
     unchanged = editor.state.doc.length;
     //console.log("doc length", unchanged);
+}
+
+function loadBlocklyContents(content) {
+    let workspace = JSON.parse(content);
+     Blockly.serialization.workspaces.load(workspace, blocklyWorkspace);
 }
 
 setFilename(null);
@@ -469,6 +530,48 @@ function loadFileContents(path, contents, saved = true) {
     console.log("Current File Changed to: " + workflow.currentFilename);
 }
 
+// Blockly
+async function saveBlocklyFileContents(path) {
+    // If this is a different file, we write everything
+    if (path !== workflow.currentFilename) {
+        unchanged = 0;
+    }
+    let contents = JSON.stringify(Blockly.serialization.workspaces.save(blocklyWorkspace));
+    console.log("Blockly Save", contents);
+    let offset = 0;
+    if (workflow.partialWrites) {
+        offset = unchanged;
+        console.log("sync starting at", unchanged, "to", contents.length);
+    }
+    let oldUnchanged = unchanged;
+    unchanged = contents.length;
+    try {
+        if (await workflow.writeFile(path, contents, offset)) {
+            setFilename(workflow.currentFilename);
+            setSaved(true);
+        } else {
+            await showMessage(`Saving file '${workflow.currentFilename} failed.`);
+        }
+    } catch (e) {
+        console.error("write failed", e, e.stack);
+        unchanged = Math.min(oldUnchanged, unchanged);
+        if (currentTimeout != null) {
+            clearTimeout(currentTimeout);
+        }
+        currentTimeout = setTimeout(saveFileContents, 2000);
+    }
+}
+
+// Load the File Contents and Path into the UI
+function loadBlocklyFileContents(path, contents, saved = true) {
+    setFilename(path);
+    loadBlocklyContents(contents);
+    if (saved !== null) {
+        setSaved(saved);
+    }
+    console.log("Current File Changed to: " + workflow.currentFilename);
+}
+
 async function onTextChange(update) {
     if (!update.docChanged) {
         return;
@@ -551,6 +654,19 @@ function loadParameterizedContent() {
     return documentState;
 }
 
+var blocklyWorkspace = loadBlockly();
+
+btnBlocklyGenerate.forEach((element) => {
+    element.addEventListener('click', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        let code = generateCode(blocklyWorkspace);
+        console.log(code);
+        loadEditorContents(code);
+    });
+});
+
 document.addEventListener('DOMContentLoaded', async (event) => {
     await setupXterm();
     btnConnect.forEach((element) => {
@@ -592,3 +708,5 @@ document.addEventListener('DOMContentLoaded', async (event) => {
         await checkConnected();
     }
 });
+
+

@@ -22,6 +22,7 @@ const HIDDEN_PREFIXES = ["._"];
 // This is for mapping file extensions to font awesome icons
 const extensionMap = {
     "avi":  {style: FA_STYLE_REGULAR, icon: "file-video", type: "bin"},
+    "blk":  {style: FA_STYLE_REGULAR, icon: "file-code", type: "text"},
     "bmp":  {style: FA_STYLE_REGULAR, icon: "file-image", type: "bin"},
     "css":  {style: FA_STYLE_REGULAR, icon: "file-lines", type: "text"},
     "gif":  {style: FA_STYLE_REGULAR, icon: "file-image", type: "bin"},

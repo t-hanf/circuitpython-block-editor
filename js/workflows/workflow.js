@@ -57,6 +57,8 @@ class Workflow {
         this._isDirty = params.isDirtyFunc;
         this._saveFileContents = params.saveFileFunc;
         this._loadFileContents = params.loadFileFunc;
+        this._saveBlockContents = params.saveBlockFunc;
+        this._loadBlockContents = params.loadBlockFunc;
         this._showMessage = params.showMessageFunc;
         this.loader = document.getElementById("loader");
         if ("terminalTitle" in params) {
@@ -220,6 +222,19 @@ class Workflow {
         return true;
     }
 
+    async checkBlockSaved() {
+        if (this._isDirty()) {
+            let result = await this._unsavedDialog.open("Current changes will be lost. Do you want to save?");
+            if (result !== null) {
+                if (!result || await this.saveBlockFile()) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return true;
+    }
+
     async saveFile(path = null) {
         if (path === null) {
             if (this.currentFilename !== null) {
@@ -230,6 +245,21 @@ class Workflow {
         }
         if (path !== null) {
             await this._saveFileContents(path);
+            return true;
+        }
+        return false;
+    }
+
+    async saveBlockFile(path = null) {
+        if (path === null) {
+            if (this.currentFilename !== null) {
+                path = this.currentFilename;
+            } else {
+                path = await this.saveBlockFileAs();
+            }
+        }
+        if (path !== null) {
+            await this._saveBlockContents(path);
             return true;
         }
         return false;
@@ -248,6 +278,18 @@ class Workflow {
         return path;
     }
 
+    async saveBlockFileAs() {
+        let path = await this.saveFileDialog();
+        if (path !== null) {
+            // check if filename exists
+            if (path != this.currentFilename && await this.fileExists(path) && !window.confirm("Overwrite existing file '" + path + "'?")) {
+                return null;
+            }
+            this.currentFilename = path;
+            await this.saveBlockFile(path);
+        }
+    }
+
     async fileExists(path) {
         return await this.showBusy(this.fileHelper.fileExists(path));
     }
@@ -263,6 +305,20 @@ class Workflow {
         if (path !== null) {
             let contents = await this.readFile(path);
             this._loadFileContents(path, contents);
+        }
+    }
+
+    async openBlockFile() {
+        if (await this.checkBlockSaved()) {
+            await this.openFileDialog(this.blockFileLoadHandler.bind(this));
+        }
+    }
+
+    async blockFileLoadHandler(path) {
+        console.log("Path:", path);
+        if (path !== null) {
+            let contents = await this.readFile(path);
+            this._loadBlockContents(path, contents);
         }
     }
 

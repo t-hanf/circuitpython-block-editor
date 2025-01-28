@@ -1,50 +1,62 @@
 import state from './state.js'
 
+import Split from "split.js";
+
 const btnModeEditor = document.getElementById('btn-mode-editor');
 const btnModeSerial = document.getElementById('btn-mode-serial');
+const btnModeBlockly = document.getElementById('btn-mode-blockly');
 
 export const mainContent = document.getElementById('main-content');
 const editorPage = document.getElementById('editor-page');
 const serialPage = document.getElementById('serial-page');
 const pageSeparator = document.getElementById('page-separator');
+const blocklyPage = document.getElementById('blockly-page');
+
 
 btnModeEditor.addEventListener('click', async function (e) {
-    if (btnModeEditor.classList.contains('active') && !btnModeSerial.classList.contains('active')) {
+    if (btnModeEditor.classList.contains('active') && !btnModeBlockly.classList.contains('active')) {
         // this would cause both editor & serial pages to disappear
         return;
     }
     btnModeEditor.classList.toggle('active');
     editorPage.classList.toggle('active')
-    updatePageLayout(true, false);
-});
-
-btnModeSerial.addEventListener('click', async function (e) {
-    if (btnModeSerial.classList.contains('active') && !btnModeEditor.classList.contains('active')) {
-        // this would cause both editor & serial pages to disappear
-        return;
-    }
-    btnModeSerial.classList.toggle('active');
-    serialPage.classList.toggle('active')
     updatePageLayout(false, true);
 });
 
-function updatePageLayout(editor = false, serial = false) {
-    if (editorPage.classList.contains('active') && serialPage.classList.contains('active')) {
+btnModeSerial.addEventListener('click', async function (e) {
+    btnModeSerial.classList.toggle('active');
+    serialPage.classList.toggle('active');
+    updatePageLayout(false, true);
+});
+
+btnModeBlockly.addEventListener('click', async function (e) {
+    if(btnModeBlockly.classList.contains('active') && !btnModeEditor.classList.contains('active')) {
+        return;
+    }
+    btnModeBlockly.classList.toggle('active');
+    blocklyPage.classList.toggle('active');
+    updatePageLayout(true, false);
+});
+
+
+
+function updatePageLayout(blockly = false, editor = false) {
+    if (editorPage.classList.contains('active') && blocklyPage.classList.contains('active')) {
         pageSeparator.classList.add('active');
     } else {
         pageSeparator.classList.remove('active');
         editorPage.style.width = null;
         editorPage.style.flex = null;
-        serialPage.style.width = null;
-        serialPage.style.flex = null;
+        blocklyPage.style.width = null;
+        blocklyPage.style.flex = null;
         return;
     }
 
     if (mainContent.offsetWidth < 768) {
         if (editor) {
-            btnModeSerial.classList.remove('active');
-            serialPage.classList.remove('active');
-        } else if (serial) {
+            btnModeBlockly.classList.remove('active');
+            blocklyPage.classList.remove('active');
+        } else if (blockly) {
             btnModeEditor.classList.remove('active');
             editorPage.classList.remove('active');
         }
@@ -54,11 +66,11 @@ function updatePageLayout(editor = false, serial = false) {
         let s = pageSeparator.offsetWidth;
         editorPage.style.width = ((w - s) / 2) + 'px';
         editorPage.style.flex = '0 0 auto';
-        serialPage.style.width = ((w - s) / 2) + 'px';
-        serialPage.style.flex = '0 0 auto';
+        blocklyPage.style.width = ((w - s) / 2) + 'px';
+        blocklyPage.style.flex = '0 0 auto';
     }
 
-    if (serial) {
+    if (serialPage.classList.contains('active')) {
         refitTerminal();
     }
 }
@@ -106,22 +118,22 @@ function resize(e) {
     const hidingThreshold = 0.1;
     const minimumThreshold = 0.2;
     if (ratio < hidingThreshold) {
-        editorPage.classList.remove('active');
-        btnModeEditor.classList.remove('active');
+        blocklyPage.classList.remove('active');
+        btnModeBlockly.classList.remove('active');
         updatePageLayout();
         stopResize();
         return;
     } else if (ratio > 1 - hidingThreshold) {
-        serialPage.classList.remove('active');
-        btnModeSerial.classList.remove('active');
+        editorPage.classList.remove('active');
+        btnModeEditor.classList.remove('active');
         updatePageLayout();
         stopResize();
         return;
     } else if (ratio < minimumThreshold || ratio > 1 - minimumThreshold) {
         return;
     }
-    editorPage.style.width = (e.clientX - gap / 2) + 'px';
-    serialPage.style.width = (w - e.clientX - gap / 2) + 'px';
+    blocklyPage.style.width = (e.clientX - gap / 2) + 'px';
+    editorPage.style.width = (w - e.clientX - gap / 2) + 'px';
 }
 
 function stopResize(e) {
